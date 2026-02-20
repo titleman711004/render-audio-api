@@ -1,12 +1,14 @@
+import os
+import tempfile
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+import replicate
 
 app = FastAPI()
 
-# 設定 CORS，只允許你的 GitHub Pages 網址連線 (測試時可先用 "*")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 之後上線記得改成 "https://你的帳號.github.io"
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -14,14 +16,31 @@ app.add_middleware(
 
 @app.post("/upload")
 async def upload_audio(file: UploadFile = File(...)):
-    # 這裡之後會放入音訊分軌的 AI 邏輯
-    # 現在我們先模擬「成功接收檔案」
-    file_size = len(await file.read())
-    
-    return {
-        "status": "success",
-        "message": "Render 說：檔案接收成功！",
-        "filename": file.filename,
-        "size_bytes": file_size,
-        "mock_file_url": f"https://render-storage.com/temp/{file.filename}" # 模擬暫存網址
-    }
+    try:
+        # 1. 將使用者上傳的檔案暫存到 Render 伺服器上
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_file:
+            temp_file.write(await file.read())
+            temp_file_path = temp_file.name
+
+        # 2. 讀取暫存檔，發送給 Replicate 進行分軌
+        with open(temp_file_path, "rb") as audio_file:
+            output = replicate.run(
+                "cjwbw/demucs:25a173108cff36ef9f80f854c162d01df9e6528be175794b80c2c626bb8966d5",
+                input={"audio": audio_file}
+            )
+        
+        # 3. 處理完成後，刪除暫存檔
+        os.remove(temp_file_path)
+
+        # 回傳 4 個音軌的網址給前端
+        return {
+            "status": "success",
+            "message": "AI 分軌大功告成！",
+            "tracks": output 
+        }
+
+    except Exception as e:
+        return {
+            "status": "error", 
+            "message": f"處理過程中發生錯誤：{str(e)}"
+        }
