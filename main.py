@@ -24,12 +24,13 @@ async def upload_audio(file: UploadFile = File(...)):
 
         # 2. 讀取暫存檔，發送給 Replicate 進行分軌
         with open(temp_file_path, "rb") as audio_file:
+            # 🌟 這裡換成了 Replicate 官方最新、正確的 Demucs 模型版本號
             output = replicate.run(
-                "cjwbw/demucs:25a173108cff36ef9f80f854c162d01df9e6528be175794b80c2c626bb8966d5",
+                "cjwbw/demucs:25a173108cff36ef9f80f854c162d01df9e6528be175794b81158fa03836d953",
                 input={"audio": audio_file}
             )
         
-        # 3. 處理完成後，刪除暫存檔
+        # 3. 處理完成後，刪除暫存檔以節省空間
         os.remove(temp_file_path)
 
         # 回傳 4 個音軌的網址給前端
